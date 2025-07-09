@@ -6,6 +6,11 @@ class Inkoscribe < Formula
   license "MIT"
 
   def install
+    # Check for macOS 13 or later
+    if OS.mac? && MacOS.version < :ventura
+      odie "Error: This application requires macOS 13 (Ventura) or later. Current version: #{MacOS.version}"
+    end
+
     # Check for Apple Silicon architecture
     if OS.mac? && Hardware::CPU.arm?
       ohai "Detected Apple Silicon processor - proceeding with installation..."
@@ -64,10 +69,6 @@ class Inkoscribe < Formula
 
         # Transcribe audio file
         inkoscribe --source /path/to/audio.wav
-
-      Environment variables:
-        WHISPER_MODEL_PATH: Path to Whisper model file
-                           (default: #{HOMEBREW_PREFIX}/share/whisper/ggml-base.en.bin)
     EOS
   end
 
