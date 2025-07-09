@@ -2,7 +2,7 @@ class Inkoscribe < Formula
   desc "Live, local, and private audio transcription"
   homepage "https://github.com/uohzxela/homebrew-inkoscribe"
   url "https://github.com/uohzxela/homebrew-inkoscribe/releases/download/v0.1.0/inkoscribe-mac.tar.gz"
-  sha256 "eb808e9dbaab51724e64dbca902f2480334628479f9dcb1fb598ab1191e29c9d"
+  sha256 "53080f85bdbd7c2076b6bc10ac642a6b4db9422dec4261117fe64324763c6ff6"
   license "MIT"
 
   def install
@@ -15,7 +15,7 @@ class Inkoscribe < Formula
     if OS.mac? && Hardware::CPU.arm?
       ohai "Detected Apple Silicon processor - proceeding with installation..."
     elsif OS.mac? && Hardware::CPU.intel?
-      odie "Error: This application requires Apple Silicon (M1/M2/M3) processors. Intel Macs are not supported."
+      odie "Error: This application requires Apple Silicon (M1/M2/M3+) processors. Intel Macs are not supported."
     else
       odie "Error: Unsupported CPU architecture. This application only supports Apple Silicon processors."
     end
