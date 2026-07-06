@@ -1,21 +1,16 @@
 class Inkoscribe < Formula
   desc "Live, local, and private audio transcription"
   homepage "https://github.com/uohzxela/homebrew-inkoscribe"
-  url "https://github.com/uohzxela/homebrew-inkoscribe/releases/download/v0.1.0/inkoscribe-mac.tar.gz"
-  sha256 "53080f85bdbd7c2076b6bc10ac642a6b4db9422dec4261117fe64324763c6ff6"
+  url "https://github.com/uohzxela/homebrew-inkoscribe/releases/download/v0.2.0/inkoscribe-mac.tar.gz"
+  sha256 "e71bc672d897a71c255f07c64fc8a79b7df7ae91373a7b8958d977eb6fbdaedc"
   license "MIT"
 
   def install
-    # Check for macOS 13 or later
-    if OS.mac? && MacOS.version < :ventura
-      odie "Error: This application requires macOS 13 (Ventura) or later. Current version: #{MacOS.version}"
-    end
-
     # Check for Apple Silicon architecture
     if OS.mac? && Hardware::CPU.arm?
       ohai "Detected Apple Silicon processor - proceeding with installation..."
     elsif OS.mac? && Hardware::CPU.intel?
-      odie "Error: This application requires Apple Silicon (M1/M2/M3+) processors. Intel Macs are not supported."
+      odie "Error: This application requires Apple Silicon (M1/M2/M3) processors. Intel Macs are not supported."
     else
       odie "Error: Unsupported CPU architecture. This application only supports Apple Silicon processors."
     end
@@ -23,10 +18,35 @@ class Inkoscribe < Formula
     # Install actual binary in libexec
     libexec.install "inkoscribe"
 
-    # Create wrapper script to set WHISPER_MODEL_PATH
+    # Wrapper script: points the binary at the shared model directory and
+    # downloads a named model on first use (e.g. `inkoscribe --model small.en`).
+    # base.en ships by default so every machine gets a real-time baseline;
+    # heavier models are strictly opt-in.
     (bin/"inkoscribe").write <<~EOS
       #!/bin/bash
-      export WHISPER_MODEL_PATH="${WHISPER_MODEL_PATH:-#{share}/whisper/ggml-base.en.bin}"
+      export WHISPER_MODEL_DIR="${WHISPER_MODEL_DIR:-#{share}/whisper}"
+
+      model=""
+      prev=""
+      for arg in "$@"; do
+        if [ "$prev" = "--model" ] || [ "$prev" = "-m" ]; then
+          model="$arg"
+        fi
+        case "$arg" in
+          --model=*) model="${arg#*=}" ;;
+        esac
+        prev="$arg"
+      done
+
+      # Named model (not a path): fetch it into the model dir if missing.
+      if [ -n "$model" ] && [[ "$model" != */* ]] && [[ "$model" != *.bin ]]; then
+        model_file="$WHISPER_MODEL_DIR/ggml-$model.bin"
+        if [ ! -f "$model_file" ]; then
+          echo "Model '$model' not installed yet; downloading to $model_file ..."
+          curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-$model.bin" -o "$model_file" || exit 1
+        fi
+      fi
+
       exec "#{libexec}/inkoscribe" "$@"
     EOS
     (bin/"inkoscribe").chmod 0755
@@ -69,6 +89,21 @@ class Inkoscribe < Formula
 
         # Transcribe audio file
         inkoscribe --source /path/to/audio.wav
+
+        # Higher-quality model (downloads ~470 MB on first use)
+        inkoscribe --source sys --model small.en
+
+        # Save finalized transcript lines to a file
+        inkoscribe --source sys --transcript out.txt
+
+      The default model is base.en, which runs in real time on all Apple
+      Silicon Macs. Use --model small.en for noticeably better accuracy if
+      your machine keeps up with it.
+
+      Environment variables:
+        WHISPER_MODEL_DIR:  Directory holding ggml-<name>.bin model files
+                            (default: #{HOMEBREW_PREFIX}/share/whisper)
+        WHISPER_MODEL_PATH: Full path to a model file (--model overrides this)
     EOS
   end
 
