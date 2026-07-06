@@ -2,8 +2,9 @@ class Inkoscribe < Formula
   desc "Live, local, and private audio transcription"
   homepage "https://github.com/uohzxela/homebrew-inkoscribe"
   url "https://github.com/uohzxela/homebrew-inkoscribe/releases/download/v0.2.0/inkoscribe-mac.tar.gz"
-  sha256 "e71bc672d897a71c255f07c64fc8a79b7df7ae91373a7b8958d977eb6fbdaedc"
+  sha256 "ead02b1e1f0de3228e1472f629457f037ee6597c1d54a2a11817f8a07b980f7a"
   license "MIT"
+  revision 1
 
   def install
     # Check for Apple Silicon architecture
@@ -24,7 +25,7 @@ class Inkoscribe < Formula
     # heavier models are strictly opt-in.
     (bin/"inkoscribe").write <<~EOS
       #!/bin/bash
-      export WHISPER_MODEL_DIR="${WHISPER_MODEL_DIR:-#{share}/whisper}"
+      export WHISPER_MODEL_DIR="${WHISPER_MODEL_DIR:-#{var}/inkoscribe/models}"
 
       model=""
       prev=""
@@ -50,26 +51,32 @@ class Inkoscribe < Formula
       exec "#{libexec}/inkoscribe" "$@"
     EOS
     (bin/"inkoscribe").chmod 0755
-
-    # Create directory for Whisper models at the specified path
-    whisper_dir = share/"whisper"
-    whisper_dir.mkpath
-
-    # Download base model if it doesn't exist at the specified path
-    model_path = whisper_dir/"ggml-base.en.bin"
-    unless model_path.exist?
-      ohai "Downloading Whisper base model to #{model_path}..."
-      system "curl", "-L",
-             "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
-             "-o", model_path.to_s
-    end
   end
 
   def post_install
-    # Set up model path environment variable
-    ohai "Setting up Whisper model path..."
-    puts "The Whisper model is installed at: #{share}/whisper/ggml-base.en.bin"
-    puts "You can override this by setting WHISPER_MODEL_PATH environment variable"
+    # Models live under var, NOT the versioned keg: keg contents are deleted
+    # on upgrade, which would wipe downloaded models and force a re-download
+    # of base.en every release.
+    models_dir = var/"inkoscribe/models"
+    models_dir.mkpath
+
+    # Migrate models from the old keg-share location if any survived.
+    old_dir = HOMEBREW_PREFIX/"share/whisper"
+    if old_dir.directory?
+      old_dir.glob("ggml-*.bin").each do |m|
+        target = models_dir/m.basename
+        FileUtils.mv(m, target) unless target.exist?
+      end
+    end
+
+    # Ship the baseline model so first run works offline.
+    base_model = models_dir/"ggml-base.en.bin"
+    unless base_model.exist?
+      ohai "Downloading Whisper base model to #{base_model}..."
+      system "curl", "-L",
+             "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+             "-o", base_model.to_s
+    end
   end
 
   def caveats
@@ -100,9 +107,12 @@ class Inkoscribe < Formula
       Silicon Macs. Use --model small.en for noticeably better accuracy if
       your machine keeps up with it.
 
+      Models are stored in #{HOMEBREW_PREFIX}/var/inkoscribe/models and
+      survive upgrades.
+
       Environment variables:
         WHISPER_MODEL_DIR:  Directory holding ggml-<name>.bin model files
-                            (default: #{HOMEBREW_PREFIX}/share/whisper)
+                            (default: #{HOMEBREW_PREFIX}/var/inkoscribe/models)
         WHISPER_MODEL_PATH: Full path to a model file (--model overrides this)
     EOS
   end
