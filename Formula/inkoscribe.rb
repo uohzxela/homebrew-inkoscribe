@@ -1,10 +1,9 @@
 class Inkoscribe < Formula
   desc "Live, local, and private audio transcription"
   homepage "https://github.com/uohzxela/homebrew-inkoscribe"
-  url "https://github.com/uohzxela/homebrew-inkoscribe/releases/download/v0.2.0/inkoscribe-mac.tar.gz"
-  sha256 "ead02b1e1f0de3228e1472f629457f037ee6597c1d54a2a11817f8a07b980f7a"
+  url "https://github.com/uohzxela/homebrew-inkoscribe/releases/download/v0.3.0/inkoscribe-mac.tar.gz"
+  sha256 "27806283a0df9da1fe25386d0e298483f8986589122134803094628cf78a8460"
   license "MIT"
-  revision 1
 
   def install
     # Check for Apple Silicon architecture
